@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="search.css"/>
+</head>
+<body>
+
+
+    <input class="search" id="search" type="text" placeholder="Search ..."></input>
+    
+
+    <div class="overview">
+        <div class="icon" id="add"><span>+</span></div>
+    </div>
+
+    <div id="add_modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <form id="adder">
+            <label>Name</label>
+            <input id="name" name="name" type="text">
+            <label>Link</label>
+            <input id="link" name="link" type="text">
+            <input type="submit" value="Add">
+            </form>
+        </div>
+    </div>
+
+  <script src="shortcuts.js"></script>
+  <script src="search.js"></script>
+  <script src="background.js"></script>
+  
+</body>
+</html>
