@@ -77,9 +77,10 @@ class Universe {
       
           // Apply movement: moveForward moves along the camera's local z-axis,
           // moveRight moves along the local x-axis.
-          this.controls.moveForward(moveVec.y * speed);
+          this.controls.moveForward(moveVec.z * speed);
           this.controls.moveRight(moveVec.x * speed);
-          this.controls.moveUp(moveVec.z * speed);
+
+          this.camera.position.y += moveVec.y * speed;
         }
     }
 

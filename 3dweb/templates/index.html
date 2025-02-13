@@ -52,8 +52,47 @@
 
         var i = 0;
 
+        var tendency = []
+        var strength = 0;
+
         function update() {
-            const {x, y, z} = getPosition(i, universe.getCubePosition());
+            var x = x || 0;
+            var y = y || 0;
+            var z = z || 0;
+
+            const grain = 0.1;
+
+            var i = i * grain;
+
+
+            const wandering_scale = 5;
+            
+
+            tendency.push(strength)
+            const sum = tendency.reduce((a, b) => a + b, 0);
+            const avg = (sum / tendency.length) || 0;
+
+
+            var dz = Math.random();
+            var dx = Math.random();
+            x += dx * (Math.pow(-1, Math.floor(avg)));
+            z += dz * (Math.pow(-1, Math.floor(avg)));;
+
+            strength = Math.abs(
+                Math.sqrt(
+                    Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2)
+                )
+            )
+
+
+            
+
+            console.log(`The sum is: ${sum}. The average is: ${avg}.`);
+
+            console.log('Strength ' + strength);
+
+            
+
             universe.moveCube(
                 x, y, z
             )

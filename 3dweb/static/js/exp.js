@@ -7,19 +7,22 @@ function getPosition(i, { x, y, z }) {
 
     var i = i * grain;
 
+
+    const wandering_scale = 5;
+
     var strength = Math.abs(
         Math.sqrt(
             Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2)
         )
-    ) * 0.001
+    )
 
-    z += Math.random();
-    x += Math.random();
+    var dz = Math.random() * wandering_scale;
+    var dx = Math.random() * wandering_scale;
 
-    z -= z * strength;
-    x -= x * strength;
+    var strength1 = (Math.random() * strength)
 
     console.log('Strength ' + strength);
+
 
     return {x, y, z}
 }
