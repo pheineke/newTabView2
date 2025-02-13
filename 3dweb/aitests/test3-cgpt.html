@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Web Browser Universe - Recursive</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        .iframe-container {
+            width: 1024px;
+            height: 768px;
+            border: 2px solid #333;
+            background: #fff;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Three.js, PointerLockControls und CSS3DRenderer -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+    <script>
+        let scene, camera, webGLRenderer, cssRenderer, controls;
+        let portals = [];
+        let currentContentGroup = null;
+        const MOVEMENT_SPEED = 0.2;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        
+        function init() {
+            // Hauptszene und Kamera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 1.6, 10);
+            
+            // WebGL Renderer
+            webGLRenderer = new THREE.WebGLRenderer({ antialias: true });
+            webGLRenderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(webGLRenderer.domElement);
+            
+            // CSS3D Renderer für iframes / DOM-Elemente
+            cssRenderer = new THREE.CSS3DRenderer();
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.domElement.style.position = 'absolute';
+            cssRenderer.domElement.style.top = 0;
+            document.body.appendChild(cssRenderer.domElement);
+            
+            // Licht
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const directional = new THREE.DirectionalLight(0xffffff, 0.8);
+            directional.position.set(0, 10, 5);
+            scene.add(directional);
+            
+            // Boden
+            const floorGeom = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
+            const floor = new THREE.Mesh(floorGeom, floorMat);
+            floor.rotation.x = -Math.PI/2;
+            scene.add(floor);
+            
+            // Erstelle initiale Portale in der Hauptszene
+            createPortal(new THREE.Vector3(-5, 1.5, -10), 'https://example.com');
+            createPortal(new THREE.Vector3(5, 1.5, -10), 'https://example.org');
+            
+            // PointerLockControls für FPS-Bewegung
+            controls = new THREE.PointerLockControls(camera, document.body);
+            document.body.addEventListener('click', () => {
+                controls.lock();
+            });
+            
+            // Tastatursteuerung
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        // Erstellt einen Portalring (als WebGL-Objekt) an einer bestimmten Position
+        function createPortal(position, url) {
+            const ringGeom = new THREE.RingGeometry(1, 1.2, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeom, ringMat);
+            ring.position.copy(position);
+            ring.rotation.x = Math.PI/2;
+            ring.userData = { url: url };
+            scene.add(ring);
+            portals.push(ring);
+        }
+        
+        // Beim Betreten eines Portals wird der Inhalt in einem 3D-Raum angezeigt
+        function enterPortal(url, portalPos) {
+            // Entferne die Portale aus der Hauptszene
+            portals.forEach(p => scene.remove(p));
+            portals = [];
+            
+            // Erstelle eine Gruppe für den Content-Raum
+            currentContentGroup = new THREE.Group();
+            // Zentrales Inhalts-Panel (Hauptwebseite)
+            const mainPanel = createContentPanel(url, 1024, 768, 0.005);
+            mainPanel.position.set(0, 1.6, -3);
+            currentContentGroup.add(mainPanel);
+            
+            // Zusätzliche (simulierte) Links, die als umliegende Portale erscheinen
+            const linkedUrls = [
+                'https://example.net',
+                'https://example.edu',
+                'https://example.info'
+            ];
+            const radius = 5;
+            linkedUrls.forEach((lUrl, i) => {
+                const angle = (i / linkedUrls.length) * Math.PI * 2;
+                const panel = createContentPanel(lUrl, 640, 480, 0.005);
+                panel.position.set(radius * Math.cos(angle), 1.6, -3 + radius * Math.sin(angle));
+                panel.lookAt(new THREE.Vector3(0, 1.6, -3));
+                // Speichere den URL, um beim Klick in ein neues Portal zu wechseln
+                panel.userData = { url: lUrl };
+                currentContentGroup.add(panel);
+            });
+            
+            scene.add(currentContentGroup);
+        }
+        
+        // Erzeugt ein 3D-Inhalts-Panel aus einem iframe (CSS3DObject) und einem WebGL-Rahmen
+        function createContentPanel(url, width, height, scale) {
+            // Erstelle einen Container-Div für den iframe
+            const div = document.createElement('div');
+            div.className = 'iframe-container';
+            div.style.width = width + 'px';
+            div.style.height = height + 'px';
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            div.appendChild(iframe);
+            
+            const cssObject = new THREE.CSS3DObject(div);
+            cssObject.scale.set(scale, scale, scale);
+            
+            // Optional: Erstelle einen Rahmen als WebGL-Objekt
+            const frameGeom = new THREE.BoxGeometry(width * scale, height * scale, 0.02);
+            const frameMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            const frameMesh = new THREE.Mesh(frameGeom, frameMat);
+            frameMesh.position.set(0, 0, -0.01);
+            
+            const group = new THREE.Group();
+            group.add(cssObject);
+            group.add(frameMesh);
+            
+            return group;
+        }
+        
+        // Tastatursteuerung
+        function onKeyDown(event) {
+            switch(event.key.toLowerCase()) {
+                case 'w': moveForward = true; break;
+                case 's': moveBackward = true; break;
+                case 'a': moveLeft = true; break;
+                case 'd': moveRight = true; break;
+            }
+        }
+        
+        function onKeyUp(event) {
+            switch(event.key.toLowerCase()) {
+                case 'w': moveForward = false; break;
+                case 's': moveBackward = false; break;
+                case 'a': moveLeft = false; break;
+                case 'd': moveRight = false; break;
+            }
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            webGLRenderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function updateMovement() {
+            if (moveForward) controls.moveForward(MOVEMENT_SPEED);
+            if (moveBackward) controls.moveForward(-MOVEMENT_SPEED);
+            if (moveLeft) controls.moveRight(-MOVEMENT_SPEED);
+            if (moveRight) controls.moveRight(MOVEMENT_SPEED);
+        }
+        
+        // Prüft, ob der Spieler einem Portal nahe kommt (im Hauptbereich)
+        function checkPortalCollisions() {
+            portals.forEach(portal => {
+                const dist = portal.position.distanceTo(camera.position);
+                if (dist < 2) {
+                    enterPortal(portal.userData.url, portal.position);
+                }
+            });
+        }
+        
+        // Ermöglicht das Klicken auf Inhalte im Content-Raum, um in neue Portale zu wechseln (Rekursion)
+        function onDocumentClick(event) {
+            const mouse = new THREE.Vector2(
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1
+            );
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            if (currentContentGroup) {
+                const intersects = raycaster.intersectObjects(currentContentGroup.children, true);
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    if (obj.parent && obj.parent.userData && obj.parent.userData.url) {
+                        const newUrl = obj.parent.userData.url;
+                        // Entferne den aktuellen Content-Raum und erstelle ein neues Portal in der Hauptszene
+                        scene.remove(currentContentGroup);
+                        currentContentGroup = null;
+                        // Platziere das neue Portal vor der aktuellen Kamera
+                        const newPos = camera.position.clone().add(new THREE.Vector3(0, 0, -5));
+                        createPortal(newPos, newUrl);
+                    }
+                }
+            }
+        }
+        
+        document.addEventListener('click', onDocumentClick);
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            updateMovement();
+            if (!currentContentGroup) checkPortalCollisions();
+            
+            webGLRenderer.render(scene, camera);
+            cssRenderer.render(scene, camera);
+        }
+        
+        init();
+        animate();
+    </script>
+</body>
+</html>

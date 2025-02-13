@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Web Browser Universe</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        .iframe-container {
+            position: absolute;
+            width: 1024px;
+            height: 768px;
+            transform-style: preserve-3d;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+
+    <script>
+        let scene, camera, renderer, cssRenderer, controls;
+        let portals = [];
+        let currentContent = null;
+
+        const MOVEMENT_SPEED = 0.1;
+        let moveForward = false, moveBackward = false,
+            moveLeft = false, moveRight = false;
+
+        function init() {
+            // Main 3D Scene
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            
+            // WebGL Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // CSS3D Renderer
+            cssRenderer = new THREE.CSS3DRenderer();
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.domElement.style.position = 'absolute';
+            cssRenderer.domElement.style.top = '0';
+            document.body.appendChild(cssRenderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 2, 5);
+            scene.add(directionalLight);
+
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(20, 20);
+            const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Portals
+            createPortal(0, 1.5, -5, 'https://example.com');
+            createPortal(5, 1.5, 0, 'https://example.org');
+
+            // Camera setup
+            camera.position.set(0, 1.6, 5);
+            
+            // Controls
+            controls = new THREE.PointerLockControls(camera, document.body);
+            document.addEventListener('click', () => controls.lock());
+
+            // Event Listeners
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+        }
+
+        function createPortal(x, y, z, url) {
+            // Portal Ring
+            const portalGeometry = new THREE.RingGeometry(0.8, 1, 32);
+            const portalMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                side: THREE.DoubleSide
+            });
+            const portal = new THREE.Mesh(portalGeometry, portalMaterial);
+            portal.position.set(x, y, z);
+            portal.lookAt(camera.position);
+            portal.userData = { url };
+            scene.add(portal);
+
+            // Create 3D Web Content
+            const content = create3DContent(url);
+            content.position.set(x, y, z - 1);
+            content.rotation.y = Math.PI;
+            scene.add(content);
+        }
+
+        function create3DContent(url) {
+            // Create CSS3D Object
+            const div = document.createElement('div');
+            div.className = 'iframe-container';
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            div.appendChild(iframe);
+
+            const cssObject = new THREE.CSS3DObject(div);
+            cssObject.scale.set(0.002, 0.002, 0.002);
+            
+            // Add frame border
+            const frameGeometry = new THREE.BoxGeometry(2, 1.5, 0.1);
+            const frameMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            
+            const group = new THREE.Group();
+            group.add(cssObject);
+            group.add(frame);
+            
+            return group;
+        }
+
+        function checkPortalCollision() {
+            portals.forEach(portal => {
+                const distance = camera.position.distanceTo(portal.position);
+                if (distance < 1.5) {
+                    enterPortal(portal.userData.url);
+                }
+            });
+        }
+
+        function enterPortal(url) {
+            // Transition effect
+            camera.translateZ(-2);
+        }
+
+        function onKeyDown(event) {
+            switch (event.key.toLowerCase()) {
+                case 'w': moveForward = true; break;
+                case 's': moveBackward = true; break;
+                case 'a': moveLeft = true; break;
+                case 'd': moveRight = true; break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.key.toLowerCase()) {
+                case 'w': moveForward = false; break;
+                case 's': moveBackward = false; break;
+                case 'a': moveLeft = false; break;
+                case 'd': moveRight = false; break;
+            }
+        }
+
+        function updateMovement() {
+            if (moveForward) controls.moveForward(MOVEMENT_SPEED);
+            if (moveBackward) controls.moveForward(-MOVEMENT_SPEED);
+            if (moveLeft) controls.moveRight(-MOVEMENT_SPEED);
+            if (moveRight) controls.moveRight(MOVEMENT_SPEED);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            updateMovement();
+            checkPortalCollision();
+            
+            // Update both renderers
+            renderer.render(scene, camera);
+            cssRenderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

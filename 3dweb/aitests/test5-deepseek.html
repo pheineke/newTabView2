@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Web Universe</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/PointerLockControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/renderers/CSS3DRenderer.js"></script>
+
+    <script>
+        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+        let font;
+        const loader = new THREE.FontLoader();
+
+        loader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_regular.typeface.json',
+        (loadedFont) => {
+            font = loadedFont;
+            new WebUniverse();
+        });
+
+        class WebUniverse {
+            constructor() {
+                this.init();
+            }
+
+            async init() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.cssRenderer = new THREE.CSS3DRenderer();
+                this.controls = null;
+                this.currentContent = null;
+                this.portalHistory = [];
+                
+                // Renderer Setup
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(this.renderer.domElement);
+                
+                this.cssRenderer.setSize(window.innerWidth, window.innerHeight);
+                this.cssRenderer.domElement.style.position = 'absolute';
+                this.cssRenderer.domElement.style.top = '0';
+                document.body.appendChild(this.cssRenderer.domElement);
+
+                // Camera & Controls
+                this.camera.position.set(0, 1.6, 5);
+                this.controls = new THREE.PointerLockControls(this.camera, document.body);
+                document.addEventListener('click', () => this.controls.lock());
+
+                // Lighting
+                this.addLights();
+                this.addFloor();
+
+                // Start with initial URL
+                await this.loadPage(window.location.href, new THREE.Vector3(0, 1.5, -5));
+                
+                this.setupEventListeners();
+                this.animate();
+            }
+
+            async loadPage(url, position) {
+                try {
+                    const content = await this.fetchPageContent(url);
+                    this.createContentWorld(content, position);
+                    this.generatePortals(content.links, position);
+                } catch (error) {
+                    console.error('Fehler beim Laden der Seite:', error);
+                }
+            }
+
+            async fetchPageContent(url) {
+                const response = await fetch(CORS_PROXY + url);
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                return {
+                    title: doc.title,
+                    text: this.extractMainText(doc),
+                    images: this.extractImages(doc),
+                    links: this.extractLinks(doc)
+                };
+            }
+
+            extractMainText(doc) {
+                return Array.from(doc.querySelectorAll('p'))
+                    .map(p => p.textContent)
+                    .join('\n')
+                    .substring(0, 500);
+            }
+
+            extractImages(doc) {
+                return Array.from(doc.querySelectorAll('img'))
+                    .map(img => img.src)
+                    .filter(src => src.startsWith('http'))
+                    .slice(0, 3);
+            }
+
+            extractLinks(doc) {
+                return Array.from(doc.querySelectorAll('a'))
+                    .map(a => ({
+                        url: a.href,
+                        text: a.textContent.trim() || a.href
+                    }))
+                    .filter(link => link.url.startsWith('http'))
+                    .slice(0, 5);
+            }
+
+            createContentWorld(content, position) {
+                if (this.currentContent) {
+                    this.scene.remove(this.currentContent);
+                }
+
+                const contentGroup = new THREE.Group();
+                contentGroup.position.copy(position);
+
+                // Titel
+                const title = this.createTextMesh(content.title, 0.2, 0x00ff00);
+                title.position.set(0, 2.5, 0);
+                contentGroup.add(title);
+
+                // Text
+                const lines = content.text.split('\n');
+                lines.forEach((line, i) => {
+                    if (!line.trim()) return;
+                    const textMesh = this.createTextMesh(line, 0.1);
+                    textMesh.position.set(-3, 2 - i * 0.4, 0);
+                    contentGroup.add(textMesh);
+                });
+
+                // Bilder
+                content.images.forEach((img, i) => {
+                    const imgMesh = this.createImageMesh(img);
+                    imgMesh.position.set(i * 2 - 1, 1.5, -1);
+                    contentGroup.add(imgMesh);
+                });
+
+                this.scene.add(contentGroup);
+                this.currentContent = contentGroup;
+            }
+
+            createImageMesh(url) {
+                const texture = new THREE.TextureLoader().load(url, undefined, undefined, 
+                    (err) => console.error('Fehler beim Laden des Bildes:', url, err));
+                
+                const geometry = new THREE.PlaneGeometry(2, 1.5);
+                const material = new THREE.MeshBasicMaterial({ 
+                    map: texture,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.userData = { originalUrl: url };
+                return mesh;
+            }
+
+            createTextMesh(text, size = 0.1, color = 0xffffff) {
+                return new THREE.Mesh(
+                    new THREE.TextGeometry(text, {
+                        font: font,
+                        size: size,
+                        height: 0.02,
+                        curveSegments: 12
+                    }),
+                    new THREE.MeshPhongMaterial({ color: color })
+                );
+            }
+            // ... [Restliche Methoden wie generatePortals, createPortal, checkPortalCollisions usw.] ...
+            
+            generatePortals(links, parentPosition) {
+                const angleStep = (Math.PI * 2) / links.length;
+                
+                links.forEach((link, i) => {
+                    const angle = angleStep * i;
+                    const portalPos = new THREE.Vector3(
+                        parentPosition.x + Math.cos(angle) * 4,
+                        parentPosition.y,
+                        parentPosition.z + Math.sin(angle) * 4
+                    );
+                    
+                    this.createPortal(portalPos, link.url, link.text);
+                });
+            }
+
+            createPortal(position, url, label) {
+                // Portal-Ring
+                const portalGeo = new THREE.RingGeometry(0.7, 0.8, 32);
+                const portalMat = new THREE.MeshBasicMaterial({
+                    color: 0x00ff00,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const portal = new THREE.Mesh(portalGeo, portalMat);
+                portal.position.copy(position);
+                portal.lookAt(this.currentContent.position);
+                portal.userData = { url, label };
+                this.scene.add(portal);
+
+                // Portal-Label
+                const labelMesh = this.createTextMesh(label, 0.15);
+                labelMesh.position.copy(position);
+                labelMesh.translateY(1.2);
+                this.scene.add(labelMesh);
+            }
+
+            checkPortalCollisions() {
+                const portals = this.scene.children.filter(obj => obj.userData?.url);
+                const cameraPos = this.camera.position;
+                
+                portals.forEach(portal => {
+                    const distance = cameraPos.distanceTo(portal.position);
+                    if (distance < 1.5) {
+                        this.enterPortal(portal.userData.url, portal.position);
+                        this.scene.remove(portal);
+                    }
+                });
+            }
+
+            enterPortal(url, position) {
+                this.portalHistory.push({
+                    position: this.currentContent.position.clone(),
+                    content: this.currentContent
+                });
+                
+                this.loadPage(url, position.clone().add(new THREE.Vector3(0, 0, -5)));
+            }
+
+            setupEventListeners() {
+                const moveState = { forward: false, backward: false, left: false, right: false };
+                
+                document.addEventListener('keydown', e => {
+                    switch(e.key.toLowerCase()) {
+                        case 'w': moveState.forward = true; break;
+                        case 's': moveState.backward = true; break;
+                        case 'a': moveState.left = true; break;
+                        case 'd': moveState.right = true; break;
+                    }
+                });
+
+                document.addEventListener('keyup', e => {
+                    switch(e.key.toLowerCase()) {
+                        case 'w': moveState.forward = false; break;
+                        case 's': moveState.backward = false; break;
+                        case 'a': moveState.left = false; break;
+                        case 'd': moveState.right = false; break;
+                    }
+                });
+
+                this.controls.addEventListener('change', () => {
+                    const speed = 0.15;
+                    if(moveState.forward) this.controls.moveForward(speed);
+                    if(moveState.backward) this.controls.moveForward(-speed);
+                    if(moveState.left) this.controls.moveRight(-speed);
+                    if(moveState.right) this.controls.moveRight(speed);
+                });
+
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    this.cssRenderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.checkPortalCollisions();
+                this.renderer.render(this.scene, this.camera);
+                this.cssRenderer.render(this.scene, this.camera);
+            }
+        }
+    </script>
+</body>
+</html>

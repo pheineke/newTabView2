@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Web Universe</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    
+    <!-- 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/geometries/TextGeometry.js"></script> -->
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+    <script src="{{ url_for('static', filename='js/universe.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/exp.js') }}"></script>
+
+
+</head>
+<body>
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+        console.log('Verbunden mit dem Server!');
+        });
+
+        // Beispiel: Empfang einer Nachricht vom Server
+        socket.on('response', (data) => {
+        console.log('Nachricht vom Server:', data);
+        });
+
+        // Optional: Sende eine Nachricht an den Server
+        // socket.emit('message', { text: 'Hallo Server!' });
+    </script>
+
+    <script>
+        
+
+        var universe = new Universe();
+        universe.createCube(0.1);
+
+        const speed_ms = 500;
+
+        var i = 0;
+
+        function update() {
+            const {x, y, z} = getPosition(i, universe.getCubePosition());
+            universe.moveCube(
+                x, y, z
+            )
+
+            console.log({x, y, z});
+            i++;
+        }
+
+        // function updater() {
+        //     const fps = 60; // Desired frames per second
+        //     const fpsInterval = 1000 / fps; // Interval in milliseconds
+        //     let then = performance.now();
+
+        //     function animate(now) {
+        //         requestAnimationFrame(animate);
+        //         const elapsed = now - then;
+
+        //         if (elapsed > fpsInterval) {
+        //             then = now - (elapsed % fpsInterval);
+        //             update();
+        //         }
+        //     }
+
+        //     requestAnimationFrame(animate);
+        // }
+
+        // updater();
+
+
+        const interval = setInterval(update, speed_ms);
+
+    </script>
+</body>
+</html>
