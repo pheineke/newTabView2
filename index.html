@@ -6,34 +6,55 @@
   <title>Home</title>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
   <link rel="stylesheet" href="style.css"/>
+
+  <link rel="stylesheet" href="header.css"/>
+  <link rel="stylesheet" href="aside.css"/>
+
   <link rel="stylesheet" href="search.css"/>
+  <link rel="stylesheet" href="shortcuts.css"/>
+  
 </head>
 <body>
+  <header>
+    <a href="http://192.168.8.100:100" target="_blank">CasaOS</a>
+    <p id="radio" unselectable="on">Radio</p>
+  </header>
 
+  <input class="search" id="search" type="text" placeholder="Search ..."></input>
+  
 
-    <input class="search" id="search" type="text" placeholder="Search ..."></input>
-    
+  <div class="overview">
+      <div class="icon" id="add"><span>+</span></div>
+  </div>
 
-    <div class="overview">
-        <div class="icon" id="add"><span>+</span></div>
+  <div id="add_modal" class="modal">
+      <div class="modal-content">
+          <span class="close">&times;</span>
+          <form id="adder">
+          <label>Name</label>
+          <input id="name" name="name" type="text">
+          <label>Link</label>
+          <input id="link" name="link" type="text">
+          <input type="submit" value="Add">
+          </form>
+      </div>
+  </div>
+
+  <aside>
+    <div class="radio">
+      <img src="resources/img/dlf-icon.png" alt="Radio Logo" class="radio-logo">
+      <audio controls="">
+        <source src="https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3?aggregator=web" type="audio/mpeg">
+        Your browser does not support the audio element.
+      </audio>
     </div>
 
-    <div id="add_modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <form id="adder">
-            <label>Name</label>
-            <input id="name" name="name" type="text">
-            <label>Link</label>
-            <input id="link" name="link" type="text">
-            <input type="submit" value="Add">
-            </form>
-        </div>
-    </div>
+  </aside>
 
   <script src="shortcuts.js"></script>
   <script src="search.js"></script>
   <script src="background.js"></script>
+  <script src="header.js"></script>
   
 </body>
 </html>

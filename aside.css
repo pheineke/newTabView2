@@ -1,0 +1,24 @@
+.radio {
+    display: none;
+    align-items: center;
+
+    position: absolute;
+    top: 10vh;
+    left: calc(50vw - 12.5em);
+
+    background-color: rgba(24,137,254,255);
+
+    width: 25em;
+    padding: 10px;
+    border-radius: 1em;
+    gap: 10px;
+}
+
+.radio > img {
+    width: 5em;
+    height: auto;
+}
+
+audio {
+    
+}
